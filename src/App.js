@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import axios from 'axios';
+import PropTypes from 'prop-types';
 import './App.css';
 
 const DEFAULT_QUERY = 'redux';
@@ -22,6 +23,7 @@ class App extends Component {
       searchKey: '',
       searchTerm: DEFAULT_QUERY,
       error: null,
+      isLoading: false
     };
 
     this.needsToSearchTopStories = this.needsToSearchTopStories.bind(this);
@@ -40,14 +42,10 @@ class App extends Component {
     const { hits, page } = result;
     const { searchKey, results } = this.state;
 
-    const oldHits = results && results[searchKey]
-      ? results[searchKey].hits 
-      : [];
+    const oldHits =
+      results && results[searchKey] ? results[searchKey].hits : [];
 
-    const updatedHits = [
-      ...oldHits,
-      ...hits
-    ];
+    const updatedHits = [...oldHits, ...hits];
 
     this.setState({
       results: {
@@ -58,6 +56,8 @@ class App extends Component {
   }
 
   fetchSearchTopStories(searchTerm, page = 0) {
+    this.setState({ isLoading: true });
+
     axios(
       `${PATH_BASE}${PATH_SEARCH}?${PARAM_SEARCH}${searchTerm}&${PARAM_PAGE}${page}&${PARAM_HPP}${DEFAULT_HPP}`
     )
@@ -85,7 +85,7 @@ class App extends Component {
       this.fetchSearchTopStories(searchTerm);
     }
 
-     event.preventDefault();
+    event.preventDefault();
   }
 
   onSearchChange(event) {
@@ -98,33 +98,23 @@ class App extends Component {
 
     const isNotId = item => item.objectID !== id;
     const updatedHits = hits.filter(isNotId);
-    
+
     this.setState({
       results: {
         ...results,
-        [searchKey] : { hits: updatedHits, page } }
+        [searchKey]: { hits: updatedHits, page }
+      }
     });
   }
 
   render() {
-    const {
-      searchTerm,
-      results,
-      searchKey,
-      error 
-    } = this.state;
-    
-    const page = (
-      results &&
-      results[searchKey] &&
-      results[searchKey].page
-    ) || 0;
+    const { searchTerm, results, searchKey, error, isLoading } = this.state;
 
-    const list = (
-      results &&
-      results[searchKey] &&
-      results[searchKey].hits
-    ) || [];
+    const page =
+      (results && results[searchKey] && results[searchKey].page) || 0;
+
+    const list =
+      (results && results[searchKey] && results[searchKey].hits) || [];
 
     return (
       <div className="page">
@@ -137,27 +127,35 @@ class App extends Component {
             Search
           </Search>
         </div>
-        
-        { error
-          ? <div className="interactions">
+
+        {error ? (
+          <div className="interactions">
             <p>Something went wrong.</p>
-            </div>
-          : <Table
-              list={list}
-              onDismiss={this.onDismiss} />
-        }
+          </div>
+        ) : (
+          <Table list={list} onDismiss={this.onDismiss} />
+        )}
 
         <div className="interactions">
-          <Button
-            onClick={() => this.fetchSearchTopStories(searchKey, page + 1)}
-          >
+          <ButtonWithLoading
+            isLoading={isLoading}
+            onClick={() => this.fetchSearchTopStories(searchKey, page + 1)}>
             More
-          </Button>
+          </ButtonWithLoading>
         </div>
       </div>
     );
   }
 }
+
+const Loading = () => <div>Loading ...</div>;
+
+const withLoading = (Component) => ({ isLoading, ...rest}) =>
+  props.isLoading
+    ? <Loading />
+    : <Component {...rest} />
+
+const ButtonWithLoading = withLoading(Button);
 
 export const Search = ({ value, onChange, onSubmit, children }) => (
   <form onSubmit={onSubmit}>
@@ -166,7 +164,7 @@ export const Search = ({ value, onChange, onSubmit, children }) => (
   </form>
 );
 
-export const Table = (props) => {
+export const Table = props => {
   const { list, onDismiss } = props;
 
   const largeColumn = {
@@ -202,12 +200,39 @@ export const Table = (props) => {
       ))}
     </div>
   );
-}
+};
 
-export const Button = ({ onClick, className = '', children }) => (
+export const Button = ({ onClick, children, className }) => (
   <button onClick={onClick} className={className} type="button">
     {children}
   </button>
 );
+
+Button.defaultProps = {
+  className: ''
+};
+
+Button.propTypes = {
+  onClick: PropTypes.func,
+  className: PropTypes.string,
+  children: PropTypes.node
+};
+
+// Table.proptype = {
+//   list: PropTypes.array.isRequired,
+//   onDismiss: PropTypes.func.isRequired,
+// }
+
+Table.propTypes = {
+  list: PropTypes.arrayOf(
+    PropTypes.shape({
+      objectID: PropTypes.string.isRequired,
+      author: PropTypes.string,
+      num_comments: PropTypes.number,
+      points: PropTypes.number
+    })
+  ).isRequired,
+  onDimiss: PropTypes.isRequired
+};
 
 export default App;
